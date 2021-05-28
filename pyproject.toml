@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "nacl"
+version = "0.1.0"
+description = "Command line tool for querying Naemon configuration files."
+license = "MIT"
+authors = ["Petter Nyström"]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+click = "^8.0.1"
+simpleeval = {git = "https://github.com/danthedeckie/simpleeval", rev = "8b4b377e7394e3e0361dc12a04aa1da1864bc519"}
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+black = "^21.5b1"
+flake8 = "^3.9.2"
+
+[tool.poetry.scripts]
+nacl = 'nacl.cli:main'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
