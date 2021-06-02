@@ -11,8 +11,9 @@ from nacl.errors import errorhandler
 class FilterType(click.ParamType):
     """
     A `click.ParamType` that converts the parameter input to an `Expression`
-    object instance. All `Expression` instances are also collected in the
-    class variable `registered_filters`.
+    object instance. If `register_filter` is `True` all `Expression`
+    instances created by this `FilterType` instance are also collected in the
+    class variable `FilterType.registered_filters`.
     """
 
     registered_filters: t.List[Expression] = []

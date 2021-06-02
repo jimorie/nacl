@@ -57,6 +57,16 @@ class DataObject(collections.OrderedDict):
             ...     @register_name
             ...     def foo(self):
             ...         return 42
+            >>> obj = MyDataObject()
+            >>> obj
+            MyDataObject()
+
+            >>> obj["foo"]
+            42
+
+            >>> obj["bar"] is None
+            True
+
             >>> obj = MyDataObject({"foo": 1, "bar": 2})
             >>> obj
             MyDataObject([('foo', 1), ('bar', 2)])
@@ -66,9 +76,6 @@ class DataObject(collections.OrderedDict):
 
             >>> obj["bar"]
             2
-
-            >>> obj["foobar"] is None
-            True
         """
         try:
             if key in self.register_name:
