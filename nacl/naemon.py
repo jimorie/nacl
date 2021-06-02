@@ -51,7 +51,7 @@ class ObjectDefinition(DataObject):
         self.objtype = objtype
 
     @classmethod
-    def load(cls, lines: Lines, source_file: DataFile = None):
+    def load(cls, lines: Lines, source_file: DataFile = None) -> "ObjectDefinition":
         """
         Read the next Naemon object definition from the `lines` stream.
         Non-object definition lines are ignored.
@@ -93,7 +93,7 @@ class ObjectDefinition(DataObject):
             stream.write(f"    {k:{self.keywidth}} {v}\n")
         stream.write("}\n")
 
-    def autoconvert(self, key, value):
+    def autoconvert(self, key: str, value: str) -> t.Any:
         """
         Convert known Nameon object directives from their parsed string values
         to their proper Python values, as defined by our `conversion_table`.
@@ -106,7 +106,7 @@ class ObjectDefinition(DataObject):
         return value
 
     @register_name
-    def type(self):
+    def type(self) -> str:
         """
         Return the name of this Naemon object type when this object is
         queried for the item key "type".
@@ -163,7 +163,7 @@ class ObjdefFilter(Expression):
     """
 
     @register_function
-    def has_member(collection, *members):
+    def has_member(collection: t.Any, *members: t.List[t.Any]) -> bool:
         """
         Test if `collection` contains all of `members`, where `collection` is
         a comma-separated string of members.
@@ -175,7 +175,7 @@ class ObjdefFilter(Expression):
         return all(member in collection for member in members)
 
     @register_operator(key=ast.In)
-    def in_collection(a, b):
+    def in_collection(a: t.Any, b: t.Any) -> bool:
         """
         Make the `in` operator more lenient with `None` values.
         """
@@ -184,7 +184,7 @@ class ObjdefFilter(Expression):
         return a in b
 
     @register_operator(key=ast.NotIn)
-    def not_in_collection(a, b):
+    def not_in_collection(a: t.Any, b: t.Any) -> bool:
         """
         The `not in` operator simply inverts the `in` operator, as defined
         above.
@@ -197,7 +197,7 @@ class ObjdefUpdate(ObjdefFilter):
     A custom `Expression` tweaked for updating `ObjectDefinition` data.
     """
 
-    def _eval_assign(self, node):
+    def _eval_assign(self, node: ast.AST) -> t.Any:
         """
         Update a value in the object definition. This implements the `=`
         operator.
@@ -207,7 +207,7 @@ class ObjdefUpdate(ObjdefFilter):
             self.dataobject.update(target.id, value)
         return value
 
-    def _eval_aug_assign(self, node):
+    def _eval_aug_assign(self, node: ast.AST) -> t.Any:
         """
         Update a value in the object definition by treating the left value as
         a comma-separated collection. This implements the `+=` and `-=`
@@ -222,6 +222,8 @@ class ObjdefUpdate(ObjdefFilter):
                     left_value.append(right_value)
             elif right_value in left_value:
                 left_value.remove(right_value)
-            self.dataobject.update(node.target.id, ",".join(left_value))
+            value = ",".join(left_value)
+            self.dataobject.update(node.target.id, value)
+            return value
         else:
             return super()._eval_aug_assign(node)

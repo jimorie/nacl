@@ -1,6 +1,7 @@
 """ Exceptions and error handling. """
 
 import functools
+import typing as t
 
 import click
 import simpleeval
@@ -12,14 +13,14 @@ class ConfigSyntaxError(RuntimeError):
     pass
 
 
-def errorhandler(decorated):
+def errorhandler(decorated: t.Callable) -> t.Callable:
     """
     Decorator for handling known exceptions in the decorated function by
     re-raising them as `click.ClickException`.
     """
 
     @functools.wraps(decorated)
-    def decorator(*args, **kwargs):
+    def decorator(*args, **kwargs) -> t.Any:
         try:
             return decorated(*args, **kwargs)
         except SyntaxError as e:

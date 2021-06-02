@@ -36,7 +36,7 @@ class FilterType(click.ParamType):
         return self.filter_cls(expr)
 
     @staticmethod
-    def escape(value):
+    def escape(value: str) -> str:
         return (
             value.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').strip()
         )

@@ -107,7 +107,7 @@ class DataObject(collections.OrderedDict):
         self.dump(stream)
         return stream.getvalue()
 
-    def autoconvert(self, key: t.Any, value: str) -> t.Any:
+    def autoconvert(self, key: str, value: str) -> t.Any:
         """
         Hook for sub-classes to convert any value returned by `__getitem__`.
         """
@@ -126,7 +126,7 @@ class DataObject(collections.OrderedDict):
             return self.source_file.name
         return ""
 
-    def update(self, k, v):
+    def update(self, k: str, v: t.Any):
         """
         Update the value of `k` with `v` in the underlying `OrderedDict`. A
         `v` equal to `None` or `""` will remove the key entirely.
@@ -272,7 +272,7 @@ class DataFile(DataStream):
             self.updated = True
 
     @property
-    def updated_name(self):
+    def updated_name(self) -> str:
         """
         Return the temporary file name of our `copystream`.
         """
