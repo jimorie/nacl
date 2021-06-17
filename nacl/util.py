@@ -26,20 +26,17 @@ class register_decorator:
         >>> my_decorator.get_registered(Foo)
         {'foo': <function Foo.foo at ...>}
 
-        >>> class Bar:
-        ...     @my_decorator
-        ...     def foo(self):
-        ...         return "foo"
+        >>> class Bar(Foo):
         ...     @my_decorator(key=(1,2,3))
         ...     def bar(self):
         ...         return "bar"
 
         >>> my_decorator.get_registered(Bar)
-        {'foo': <function Bar.foo at ...>, (1, 2, 3): <function Bar.bar at ...>}
+        {'foo': <function Foo.foo at ...>, (1, 2, 3): <function Bar.bar at ...>}
 
         >>> my_decorator.set_registered(Bar)
         >>> Bar.my_decorator
-        {'foo': <function Bar.foo at ...>, (1, 2, 3): <function Bar.bar at ...>}
+        {'foo': <function Foo.foo at ...>, (1, 2, 3): <function Bar.bar at ...>}
     """
 
     def __init__(self, decorated: t.Callable = None, key: t.Any = None):
@@ -60,15 +57,16 @@ class register_decorator:
     @classmethod
     def get_registered(cls, parent_cls: t.Type) -> t.Mapping:
         """
-        Find all methods defined on `parent_cls` decorated by this class and
-        return a dict with the method names as keys and the original
-        decorated methods as values. If the decorator was created with a
-        `key` keyword argument, that value will be used as key instead of the
-        method name.
+        Find all methods defined on `parent_cls` and its parent classes
+        decorated by this class, and return a dict with the method names as
+        keys and the original decorated methods as values. If the decorator
+        was created with a `key` keyword argument, that value will be used as
+        key instead of the method name.
         """
         return {
             (value.key or key): value.decorated
-            for key, value in parent_cls.__dict__.items()
+            for owner_cls in reversed((parent_cls, *parent_cls.__bases__))
+            for key, value in owner_cls.__dict__.items()
             if isinstance(value, cls)
         }
 

@@ -266,7 +266,13 @@ def main(
                 elif opt["oneline"]:
                     # Print a one-line representation of the object
                     # definition.
-                    click.echo(f"{objdef.objtype} at {objdef.location}")
+                    identifier = objdef.identifier
+                    if identifier:
+                        click.echo(
+                            f"{objdef.objtype} '{identifier}' at {objdef.location}"
+                        )
+                    else:
+                        click.echo(f"{objdef.objtype} at {objdef.location}")
                 else:
                     # Print metadata options.
                     if "filter" in opt["metadata"]:
