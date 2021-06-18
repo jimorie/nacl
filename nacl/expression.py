@@ -79,7 +79,9 @@ class Expression(simpleeval.EvalWithCompoundTypes):
         Evaluate the expression with the named values in `names` and return
         the resulting value.
         """
-        self.names = collections.ChainMap(names or {}, simpleeval.DEFAULT_NAMES)
+        if names is None:
+            names = {}
+        self.names = collections.ChainMap(names, simpleeval.DEFAULT_NAMES)
         self._max_count = 0
         return_value = True
         for node in self.test.body:
