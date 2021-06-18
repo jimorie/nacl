@@ -36,14 +36,7 @@ class DataObject(collections.OrderedDict):
         super().__init__(*args, **kwargs)
         self.linenum = linenum
         self.source_file = source_file
-
-    def __new__(cls, *args, **kwargs):
-        """
-        Set the dict of registered names on the created instance before
-        returning it.
-        """
-        register_name.set_registered(cls)
-        return super().__new__(cls, *args, **kwargs)
+        register_name.set_registered(self.__class__)
 
     def __getitem__(self, key: t.Any) -> t.Any:
         """
