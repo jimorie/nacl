@@ -100,18 +100,18 @@ class DataObject(collections.OrderedDict):
         """
         return cls.load(io.StringIO(source), source_file=source_file)
 
-    def dump(self, stream: t.TextIO):
+    def dump(self, stream: t.TextIO, *args, **kwargs):
         """
         Write the string representation of this `DataObject` to `stream`.
         """
         raise NotImplementedError()
 
-    def dumps(self) -> str:
+    def dumps(self, *args, **kwargs) -> str:
         """
         Return the string representation of this `DataObject` as a string.
         """
         stream = io.StringIO()
-        self.dump(stream)
+        self.dump(stream, *args, **kwargs)
         return stream.getvalue()
 
     def autoconvert(self, key: str, value: str) -> t.Any:

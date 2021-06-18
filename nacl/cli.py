@@ -189,6 +189,14 @@ class GlobPath(click.Path):
     default=False,
     help="""Print only single line references to matching object definitions.""",
 )
+@click.option(
+    "--select",
+    multiple=True,
+    type=str,
+    help="""
+        Print only matching object directives.
+    """,
+)
 @click.argument(
     "config_files",
     type=GlobPath(exists=True, glob="*.cfg"),
@@ -239,6 +247,9 @@ def main(
         # options.
         registered_filters = FilterType.registered_filters
 
+        # Get the set of selected object directives
+        selected = opt["select"] or None
+
         # Iterate over all object definitions that we can parse from files or
         # stdin.
         for objdef in objdefs:
@@ -273,6 +284,12 @@ def main(
                         )
                     else:
                         click.echo(f"{objdef.objtype} at {objdef.location}")
+                    if selected:
+                        for k in selected:
+                            v = objdef[k]
+                            if v:
+                                click.echo(f"    {k:{objdef.keywidth}} {v}")
+                        click.echo()
                 else:
                     # Print metadata options.
                     if "filter" in opt["metadata"]:
@@ -281,7 +298,7 @@ def main(
                     if "file" in opt["metadata"]:
                         click.echo(f"# File: {objdef.location}")
                     # Print the matched object definition.
-                    click.echo(objdef.dumps())
+                    click.echo(objdef.dumps(selected=selected))
 
                 counter["matched"] += 1
             elif update_mode:

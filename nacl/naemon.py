@@ -159,13 +159,38 @@ class ObjectDefinition(DataObject):
                 location = f"line {linenum}"
             raise RuntimeError(f"Unsupported syntax at {location}: {exc}")
 
-    def dump(self, stream: t.TextIO):
+    def dump(self, stream: t.TextIO, selected: t.Optional[t.Mapping] = None):
         """
-        Write the Naemon object definition of this object to `stream`.
+        Write the Naemon object definition of this object to `stream`. If `selected`
+        is specified, write only object directives included therein.
+
+        Examples:
+
+            >>> print(
+            ...     ObjectDefinition("host", {
+            ...         "host_name": "foo", "contacts": "gurka,tomat"
+            ...     }).dumps()
+            ... )
+            define host {
+                host_name                      foo
+                contacts                       gurka,tomat
+            }
+            <BLANKLINE>
+
+            >>> print(
+            ...     ObjectDefinition("host", {
+            ...         "host_name": "foo", "contacts": "gurka,tomat"
+            ...     }).dumps(selected=("contacts",))
+            ... )
+            define host {
+                contacts                       gurka,tomat
+            }
+            <BLANKLINE>
         """
         stream.write(f"define {self.objtype} {{\n")
         for k, v in self.items():
-            stream.write(f"    {k:{self.keywidth}} {v}\n")
+            if selected is None or k in selected:
+                stream.write(f"    {k:{self.keywidth}} {v}\n")
         stream.write("}\n")
 
     def autoconvert(self, key: str, value: str) -> t.Any:
