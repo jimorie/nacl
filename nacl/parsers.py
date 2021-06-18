@@ -88,10 +88,29 @@ class DataObject(collections.OrderedDict):
     @classmethod
     def loads(cls, source: str, source_file: "DataFile" = None) -> "DataObject":
         """
-        Parse a new `DataObject` from the string `source`. Otherwise same as
+        Parse a new `DataObject` from the lines in `source`. Otherwise same as
         `load`.
+
+        Examples:
+
+            >>> class MyDataObject(DataObject):
+            ...     @classmethod
+            ...     def load(cls, lines, source_file=None):
+            ...         linenum, line = next(lines)
+            ...         return cls(
+            ...             [line.split("=")], linenum=linenum, source_file=source_file
+            ...         )
+
+            >>> MyDataObject.loads("foo=bar")
+            MyDataObject([('foo', 'bar')])
+
+            >>> MyDataObject.loads(
+            ...     "foo=bar", source_file=DataFile("/dev/random")
+            ... ).location
+            '/dev/random line 1'
+
         """
-        return cls.load(io.StringIO(source), source_file=source_file)
+        return cls.load(enumerate(source.splitlines(), 1), source_file=source_file)
 
     def dump(self, stream: t.TextIO, *args, **kwargs):
         """
@@ -102,6 +121,15 @@ class DataObject(collections.OrderedDict):
     def dumps(self, *args, **kwargs) -> str:
         """
         Return the string representation of this `DataObject` as a string.
+
+        Examples:
+
+            >>> class MyDataObject(DataObject):
+            ...     def dump(self, stream, *args, **kwargs):
+            ...         stream.write("foo")
+
+            >>> MyDataObject().dumps()
+            'foo'
         """
         stream = io.StringIO()
         self.dump(stream, *args, **kwargs)
@@ -117,6 +145,20 @@ class DataObject(collections.OrderedDict):
     def location(self) -> str:
         """
         Return a reference to the source of this `DataClass`.
+
+        Examples:
+
+            >>> DataObject().location
+            ''
+
+            >>> DataObject(linenum=1).location
+            'line 1'
+
+            >>> DataObject(source_file=DataFile("/dev/random")).location
+            '/dev/random'
+
+            >>> DataObject(linenum=1, source_file=DataFile("/dev/random")).location
+            '/dev/random line 1'
         """
         if self.source_file and self.linenum:
             return f"{self.source_file.name} line {self.linenum}"
@@ -156,6 +198,32 @@ class DataStream:
     Base class for a stream from which `DataObject` instances can be read.
     Sub-classes must define the class variable `object_cls` as a class that
     implements the `DataObject` interface.
+
+    Examples:
+
+        >>> import io
+
+        >>> class MyDataObject(DataObject):
+        ...     @classmethod
+        ...     def load(cls, lines, source_file=None):
+        ...         linenum, line = next(lines)
+        ...         return cls(
+        ...             [line.split("=")], linenum=linenum, source_file=source_file
+        ...         )
+        ...     def dump(self, stream, *args, **kwargs):
+        ...         stream.write("foo")
+
+        >>> class MyDataStream(DataStream):
+        ...     object_cls = MyDataObject
+
+        >>> data = (
+        ...     "foo=bar\\n"
+        ...     "# This is a comment\\n"
+        ...     "bar=foo # Yes, just foo\\n"
+        ... )
+
+        >>> list(MyDataStream(io.StringIO(data)).read_objects())
+        [MyDataObject([('foo', 'bar')]), MyDataObject([('bar', 'foo')])]
     """
 
     object_cls: DataObject = None
@@ -208,10 +276,45 @@ class DataFile(DataStream):
     A `DataStream` for files. If `update_mode` is True a copy of the file is
     written as it's being read. Writing to the copy is buffered and can be
     intercepted by instances of `DataObject` to inject updated data instead.
+
+    Examples:
+
+        >>> class MyDataObject(DataObject):
+        ...     @classmethod
+        ...     def load(cls, lines, source_file=None):
+        ...         while True:
+        ...             linenum, line = next(lines)
+        ...             if line == "foo":
+        ...                 if source_file:
+        ...                     source_file.handle_prefix()
+        ...                 return cls(
+        ...                     [(line, linenum)],
+        ...                     linenum=linenum,
+        ...                     source_file=source_file,
+        ...                 )
+        ...     def dump(self, stream, **kwargs):
+        ...         stream.write(",".join(f"{k}={v}" for k, v in self.items()))
+        ...         stream.write("\\n")
+
+        >>> class MyDataFile(DataFile):
+        ...     object_cls = MyDataObject
+        ...     def read_data_lines(self):
+        ...         for linenum in range(1, 5):
+        ...             yield linenum, "bar" if linenum % 2 else "foo"
+
+        >>> with MyDataFile("/dev/random", mode="rb", encoding=None) as datafile:
+        ...     list(datafile.read_objects())
+        [MyDataObject([('foo', 2)]), MyDataObject([('foo', 4)])]
     """
 
-    def __init__(self, name: str, encoding: str = "utf-8", update_mode: bool = False):
-        super().__init__(open(name, "r", encoding=encoding))
+    def __init__(
+        self,
+        name: str,
+        mode: str = "r",
+        encoding: str = "utf-8",
+        update_mode: bool = False,
+    ):
+        super().__init__(open(name, mode=mode, encoding=encoding))
         self.encoding = encoding
         self.name = name
         self.update_mode = update_mode
@@ -228,7 +331,7 @@ class DataFile(DataStream):
         return it, initialized with ourselves as its `source_file`, or return
         `None` if no object could be parsed.
         """
-        return self.object_cls.load(lines, self)
+        return self.object_cls.load(lines, source_file=self)
 
     def process_raw_line(self, line: str) -> str:
         """

@@ -489,7 +489,7 @@ class Host(ObjectDefinition):
 
     @property
     def identifier(self) -> t.Optional[str]:
-        """ Return `host_name` as the identifier. """
+        """Return `host_name` as the identifier."""
         return self["host_name"]
 
 
@@ -512,7 +512,7 @@ class Hostgroup(ObjectDefinition):
 
     @property
     def identifier(self) -> t.Optional[str]:
-        """ Return `hostgroup_name` as the identifier. """
+        """Return `hostgroup_name` as the identifier."""
         return self["hostgroup_name"]
 
 
@@ -567,7 +567,7 @@ class Servicegroup(ObjectDefinition):
 
     @property
     def identifier(self) -> t.Optional[str]:
-        """ Return `servicegroup_name` as the identifier. """
+        """Return `servicegroup_name` as the identifier."""
         return self["servicegroup_name"]
 
 
@@ -590,7 +590,7 @@ class Contact(ObjectDefinition):
 
     @property
     def identifier(self) -> t.Optional[str]:
-        """ Return `contact_name` as the identifier. """
+        """Return `contact_name` as the identifier."""
         return self["contact_name"]
 
 
@@ -613,7 +613,7 @@ class Contactgroup(ObjectDefinition):
 
     @property
     def identifier(self) -> t.Optional[str]:
-        """ Return `contactgroup_name` as the identifier. """
+        """Return `contactgroup_name` as the identifier."""
         return self["contactgroup_name"]
 
 
@@ -636,7 +636,7 @@ class Command(ObjectDefinition):
 
     @property
     def identifier(self) -> t.Optional[str]:
-        """ Return `command_name` as the identifier. """
+        """Return `command_name` as the identifier."""
         return self["command_name"]
 
 
@@ -659,7 +659,7 @@ class Timeperiod(ObjectDefinition):
 
     @property
     def identifier(self) -> t.Optional[str]:
-        """ Return `timeperiod_name` as the identifier. """
+        """Return `timeperiod_name` as the identifier."""
         return self["timeperiod_name"]
 
 
