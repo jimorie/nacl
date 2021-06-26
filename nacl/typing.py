@@ -2,4 +2,5 @@
 
 import typing as t
 
-Lines = t.Iterator[t.Tuple[int, str]]
+Line = t.Tuple[int, str]
+Lines = t.Iterator[Line]

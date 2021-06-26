@@ -230,38 +230,18 @@ class DataStream:
 
     def __init__(self, stream: t.TextIO = None):
         self.stream = stream
+        self.lines = self.read_lines(enumerate(stream, 1))
 
-    def read_objects(self) -> t.Iterator[DataObject]:
+    def read_lines(self, lines: Lines) -> Lines:
         """
-        Parse all object instances of `object_cls` from the stream, and yield
-        them as they are ready.
+        Generate enumerated lines of non-empty data from the stream.
         """
-        lines = self.read_data_lines()
-        while True:
-            try:
-                obj = self.read_object(lines)
-                if obj:
-                    yield obj
-            except StopIteration:
-                break
-
-    def read_object(self, lines: Lines) -> t.Optional[DataObject]:
-        """
-        Parse a single object instance of `object_cls` from the stream and
-        return it, or `None` if no object could be parsed.
-        """
-        return self.object_cls.load(lines)
-
-    def read_data_lines(self) -> Lines:
-        """
-        Generate enumerated lines of non-comment data from the stream.
-        """
-        for linenum, line in enumerate(self.stream, 1):
-            line = self.process_raw_line(line)
+        for linenum, line in lines:
+            line = self.preprocess_line(line)
             if line:
                 yield linenum, line
 
-    def process_raw_line(self, line: str) -> str:
+    def preprocess_line(self, line: str) -> str:
         """
         Strip all but non-comment data from `line` and return it. This can be
         overloaded by sub-classes that use different comment markers.
@@ -270,10 +250,30 @@ class DataStream:
             line, _ = line.split("#", 1)
         return line.strip()
 
+    def read_object(self) -> t.Optional[DataObject]:
+        """
+        Parse a single object instance of `object_cls` from the stream and
+        return it, or `None` if no object could be parsed.
+        """
+        return self.object_cls.load(self.lines)
+
+    def read_objects(self) -> t.Iterator[DataObject]:
+        """
+        Parse all object instances of `object_cls` from the stream, and yield
+        them as they are ready.
+        """
+        while True:
+            try:
+                obj = self.read_object()
+                if obj:
+                    yield obj
+            except StopIteration:
+                break
+
 
 class DataFile(DataStream):
     """
-    A `DataStream` for files. If `update_mode` is True a copy of the file is
+    A `DataStream` for files. If `update_mode` is True, a copy of the file is
     written as it's being read. Writing to the copy is buffered and can be
     intercepted by instances of `DataObject` to inject updated data instead.
 
@@ -284,11 +284,11 @@ class DataFile(DataStream):
         ...     def load(cls, lines, source_file=None):
         ...         while True:
         ...             linenum, line = next(lines)
-        ...             if line == "foo":
+        ...             if line.startswith("foo"):
         ...                 if source_file:
         ...                     source_file.handle_prefix()
         ...                 return cls(
-        ...                     [(line, linenum)],
+        ...                     [line.split("=")],
         ...                     linenum=linenum,
         ...                     source_file=source_file,
         ...                 )
@@ -298,13 +298,39 @@ class DataFile(DataStream):
 
         >>> class MyDataFile(DataFile):
         ...     object_cls = MyDataObject
-        ...     def read_data_lines(self):
-        ...         for linenum in range(1, 5):
-        ...             yield linenum, "bar" if linenum % 2 else "foo"
 
-        >>> with MyDataFile("/dev/random", mode="rb", encoding=None) as datafile:
-        ...     list(datafile.read_objects())
-        [MyDataObject([('foo', 2)]), MyDataObject([('foo', 4)])]
+        >>> import tempfile, os
+        >>> mytempfile = tempfile.NamedTemporaryFile(delete=False)
+        >>> try:
+        ...     _ = mytempfile.write(b"bar=1\\nfoo=2\\nbar=3\\nfoo=4\\nbar=5")
+        ...     mytempfile.close()
+        ...     with MyDataFile(mytempfile.name) as datafile:
+        ...         list(datafile.read_objects())
+        ... finally:
+        ...     os.remove(mytempfile.name)
+        [MyDataObject([('foo', '2')]), MyDataObject([('foo', '4')])]
+
+        >>> import tempfile, os
+        >>> mytempfile = tempfile.NamedTemporaryFile(delete=False)
+        >>> try:
+        ...     _ = mytempfile.write(b"bar=1\\nfoo=2\\nbar=3\\nfoo=4\\nbar=5")
+        ...     mytempfile.close()
+        ...     with MyDataFile(mytempfile.name, update_mode=True) as datafile:
+        ...         obj = datafile.read_object()
+        ...         obj["foo"] = "42"
+        ...         datafile.handle_update(obj)
+        ...         objects = list(datafile.read_objects())
+        ...         datafile.close()
+        ...         with open(datafile.copystream.name, mode="rb") as fh:
+        ...             datacopy = fh.read()
+        ... finally:
+        ...     os.remove(mytempfile.name)
+        >>> obj
+        MyDataObject([('foo', '42')])
+        >>> objects
+        [MyDataObject([('foo', '4')])]
+        >>> datacopy
+        b'bar=1\\nfoo=42\\nbar=3\\nfoo=4\\nbar=5'
     """
 
     def __init__(
@@ -325,22 +351,22 @@ class DataFile(DataStream):
             self.copybuffer = []
             self.updated = False
 
-    def read_object(self, lines: Lines) -> t.Optional[DataObject]:
+    def read_object(self) -> t.Optional[DataObject]:
         """
         Parse a single object instance of `object_cls` from the stream and
         return it, initialized with ourselves as its `source_file`, or return
         `None` if no object could be parsed.
         """
-        return self.object_cls.load(lines, source_file=self)
+        return self.object_cls.load(self.lines, source_file=self)
 
-    def process_raw_line(self, line: str) -> str:
+    def preprocess_line(self, line: str) -> str:
         """
         Strip all but non-comment data from `line` and return it. In
         `update_mode` the raw line is copied before it is processed.
         """
         if self.update_mode:
             self.copybuffer.append(line)
-        return super().process_raw_line(line)
+        return super().preprocess_line(line)
 
     def handle_prefix(self):
         """
