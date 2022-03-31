@@ -169,6 +169,28 @@ class GlobPath(click.Path):
     """,
 )
 @click.option(
+    "--output",
+    "-o",
+    type=click.Choice(["naemon", "oneline", "value"]),
+    default="naemon",
+    show_default=True,
+    help="""
+        Control how matching object definitions are printed. `naemon` prints
+        the full object definition using Naemon configuration syntax. `oneline`
+        prints a one-line reference of the object. `value` prints only the
+        values of object directives when also using the --select option,
+        otherwise does nothing.
+    """,
+)
+@click.option(
+    "--select",
+    multiple=True,
+    type=str,
+    help="""
+        Print only matching object directives.
+    """,
+)
+@click.option(
     "--metadata",
     "-m",
     type=click.Choice(["file", "filter", "total", "none"]),
@@ -181,20 +203,6 @@ class GlobPath(click.Path):
         object definition. `filter` prints all filters that matched the
         object definition. `total` prints the total number of matched object
         definitions before exiting. `none` prints no meta data.
-    """,
-)
-@click.option(
-    "--oneline",
-    is_flag=True,
-    default=False,
-    help="""Print only single line references to matching object definitions.""",
-)
-@click.option(
-    "--select",
-    multiple=True,
-    type=str,
-    help="""
-        Print only matching object directives.
     """,
 )
 @click.argument(
@@ -274,7 +282,7 @@ def main(
                     # Increment counters of queried object directives.
                     for directive in opt["count"]:
                         groupcounter[directive][objdef[directive]] += 1
-                elif opt["oneline"]:
+                elif opt["output"] == "oneline":
                     # Print a one-line representation of the object
                     # definition.
                     identifier = objdef.identifier
@@ -290,6 +298,15 @@ def main(
                             if v:
                                 click.echo(f"    {k:{objdef.keywidth}} {v}")
                         click.echo()
+                elif opt["output"] == "value":
+                    if selected is None:
+                        raise click.ClickException(
+                            "Unable to use --output value without --select."
+                        )
+                    for k in selected:
+                        v = objdef[k]
+                        if v:
+                            click.echo(v)
                 else:
                     # Print metadata options.
                     if "filter" in opt["metadata"]:
@@ -318,7 +335,7 @@ def main(
                 click.echo()
 
         # Print some final metadata.
-        if "total" in opt["metadata"]:
+        if "total" in opt["metadata"] and opt["output"] != "value":
             click.echo(
                 f"# Total: {counter['matched']} / {counter['total']} "
                 f"matching object definition(s)"
