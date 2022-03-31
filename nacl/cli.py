@@ -205,6 +205,15 @@ class GlobPath(click.Path):
         definitions before exiting. `none` prints no meta data.
     """,
 )
+@click.option(
+    "--limit",
+    type=int,
+    default=0,
+    show_default=False,
+    help="""
+        Constrain the processing of object definitions to the given number, then exit.
+    """,
+)
 @click.argument(
     "config_files",
     type=GlobPath(exists=True, glob="*.cfg"),
@@ -318,6 +327,9 @@ def main(
                     click.echo(objdef.dumps(selected=selected))
 
                 counter["matched"] += 1
+
+                if opt["limit"] and counter["matched"] >= opt["limit"]:
+                    break
             elif update_mode:
                 # Calling handle_unchanged will copy the old object definition
                 # untouched to the updated config file.
