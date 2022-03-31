@@ -8,7 +8,7 @@ authors = ["Petter Nyström"]
 [tool.poetry.dependencies]
 python = "^3.6"
 click = "^8.0.1"
-simpleeval = {git = "https://github.com/danthedeckie/simpleeval", rev = "8b4b377e7394e3e0361dc12a04aa1da1864bc519"}
+simpleeval = "^0.9.12"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
