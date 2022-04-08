@@ -190,7 +190,8 @@ class ObjectDefinition(DataObject):
         stream.write(f"define {self.objtype} {{\n")
         for k, v in self.items():
             if selected is None or k in selected:
-                stream.write(f"    {k:{self.keywidth}} {v}\n")
+                if v is not None and v != "":
+                    stream.write(f"    {k:{self.keywidth}} {v}\n")
         stream.write("}\n")
 
     def autoconvert(self, key: str, value: str) -> t.Any:
@@ -444,6 +445,8 @@ class ObjdefUpdate(ObjdefFilter):
         operator.
         """
         value = self._eval(node.value)
+        if value is not None and type(value) not in (str, int, float):
+            raise RuntimeError(f"Config values can be of type string, int or float, but not: {type(value).__name__}")
         for target in node.targets:
             self.dataobject.update(target.id, value)
         return value
