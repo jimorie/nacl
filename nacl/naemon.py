@@ -446,7 +446,10 @@ class ObjdefUpdate(ObjdefFilter):
         """
         value = self._eval(node.value)
         if value is not None and type(value) not in (str, int, float):
-            raise RuntimeError(f"Config values can be of type string, int or float, but not: {type(value).__name__}")
+            raise RuntimeError(
+                f"Config values can be of type string, int or float, but not: "
+                f"{type(value).__name__}"
+            )
         for target in node.targets:
             self.dataobject.update(target.id, value)
         return value

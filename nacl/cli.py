@@ -128,6 +128,14 @@ class GlobPath(click.Path):
     help=ServicegroupType.__doc__,
 )
 @click.option(
+    "--delete",
+    "-d",
+    is_flag=True,
+    help="""
+        Delete matching object definitions.
+    """,
+)
+@click.option(
     "--update",
     "-u",
     multiple=True,
@@ -228,7 +236,7 @@ def main(
     The salty command line interface to your Naemon configuration.
     """
     with contextlib.ExitStack() as exitmanager:
-        update_mode = bool(opt["update"])
+        update_mode = bool(opt["update"] or opt["delete"])
 
         if config_files:
             # Open the file streams and register them with the exitmanager, so
@@ -236,7 +244,12 @@ def main(
             # deleted) on exit.
             config_files = [
                 exitmanager.enter_context(
-                    ConfigFile(name, encoding=opt["encoding"], update_mode=update_mode)
+                    ConfigFile(
+                        name,
+                        encoding=opt["encoding"],
+                        update_mode=update_mode,
+                        delete_mode=opt["delete"],
+                    )
                 )
                 for name in itertools.chain.from_iterable(config_files)
             ]
@@ -252,7 +265,7 @@ def main(
                 # We don't know where to write updates when reading from
                 # stdin.
                 raise click.ClickException(
-                    "Unable to use --update without named config files."
+                    "Unable to use --update or --delete without named config files."
                 )
 
         # Counter object for some basic analytics.

@@ -339,11 +339,13 @@ class DataFile(DataStream):
         mode: str = "r",
         encoding: str = "utf-8",
         update_mode: bool = False,
+        delete_mode: bool = False,
     ):
         super().__init__(open(name, mode=mode, encoding=encoding))
         self.encoding = encoding
         self.name = name
-        self.update_mode = update_mode
+        self.update_mode = update_mode or delete_mode
+        self.delete_mode = delete_mode
         if update_mode:
             self.copystream = tempfile.NamedTemporaryFile(
                 mode="w", encoding=encoding, delete=False
@@ -375,7 +377,7 @@ class DataFile(DataStream):
         read the first line that is part of their definition, this will then
         flush all the junk lines read before it.
         """
-        if self.update_mode:
+        if self.update_mode and not self.delete_mode:
             self.copystream.write("".join(self.copybuffer[:-1]))
             del self.copybuffer[:-1]
 
@@ -389,13 +391,18 @@ class DataFile(DataStream):
             self.copystream.write("".join(self.copybuffer))
             self.copybuffer.clear()
 
-    def handle_update(self, obj: DataObject):
+    def handle_update(self, obj: t.Optional[DataObject]):
         """
         Clear all lines in the `copybuffer`, discarding them to instead dump
-        the definition of `obj` to the `copystream`. This can be called when
-        a `DataObject` has been updated and should be written to file.
+        the definition of `obj` to the `copystream`. This can be called when a
+        `DataObject` has been updated and should be written to file. If `obj`
+        is `None` or the `DataFile` is in `delete_mode` the object definition
+        will be removed instead of updated.
         """
-        if self.update_mode:
+        if self.delete_mode or obj is None:
+            self.copybuffer.clear()
+            self.updated = True
+        elif self.update_mode:
             self.copybuffer.clear()
             obj.dump(self.copystream)
             self.updated = True
