@@ -171,7 +171,7 @@ class GlobPath(click.Path):
 @click.option(
     "--output",
     "-o",
-    type=click.Choice(["naemon", "oneline", "value"]),
+    type=click.Choice(["naemon", "oneline", "value", "none"]),
     default="naemon",
     show_default=True,
     help="""
@@ -179,7 +179,7 @@ class GlobPath(click.Path):
         the full object definition using Naemon configuration syntax. `oneline`
         prints a one-line reference of the object. `value` prints only the
         values of object directives when also using the --select option,
-        otherwise does nothing.
+        otherwise does nothing. `none` prints no object definitions.
     """,
 )
 @click.option(
@@ -316,7 +316,7 @@ def main(
                         v = objdef[k]
                         if v:
                             click.echo(v)
-                else:
+                elif opt["output"] == "naemon":
                     # Print metadata options.
                     if "filter" in opt["metadata"]:
                         for match in matches:
