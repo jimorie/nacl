@@ -159,10 +159,10 @@ class GlobPath(click.Path):
     show_default=True,
     help="""
         Control how updated configuration files are written. `no` writes
-        updated configuration files to a new file with an added ".new"
-        suffix. `yes` replaces the original configuration file with the
-        updated file. `backup` adds a ".old" suffix to the original
-        configuration file before replacing it with the updated file.
+        updated configuration files to a new file with an added ".naclnew"
+        suffix. `yes` replaces the original configuration file with the updated
+        file. `backup` adds a ".naclold" suffix to the original configuration
+        file before replacing it with the updated file.
     """,
 )
 @click.option(
@@ -372,9 +372,11 @@ def main(
                 if config_file.updated:
                     config_file.close()
                     if opt["overwrite"] == "no":
-                        shutil.move(config_file.updated_name, config_file.name + ".new")
+                        shutil.move(
+                            config_file.updated_name, config_file.name + ".naclnew"
+                        )
                     elif opt["overwrite"] == "yes":
                         shutil.move(config_file.updated_name, config_file.name)
                     elif opt["overwrite"] == "backup":
-                        shutil.move(config_file.name, config_file.name + ".old")
+                        shutil.move(config_file.name, config_file.name + ".naclold")
                         shutil.move(config_file.updated_name, config_file.name)
