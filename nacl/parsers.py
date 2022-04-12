@@ -275,7 +275,15 @@ class DataFile(DataStream):
     """
     A `DataStream` for files. If `update_mode` is True, a copy of the file is
     written as it's being read. Writing to the copy is buffered and can be
-    intercepted by instances of `DataObject` to inject updated data instead.
+    intercepted by instances of `DataObject` to inject updated data instead. If
+    `delete_mode` is True, updates are expected to remove objects *and* any
+    preceding ignored lines before that object.
+
+    The `transaction_suffix` parameter can be given if the data should
+    primarily be read from a transactional file with the given suffix, when
+    available. If `transaction_check` is True the modification time is checked
+    to ensure that the transactional file is newer than the original, otherwise
+    a `RuntimeError` is raised.
 
     Examples:
 
@@ -340,18 +348,40 @@ class DataFile(DataStream):
         encoding: str = "utf-8",
         update_mode: bool = False,
         delete_mode: bool = False,
+        transaction_suffix: t.Optional[str] = None,
+        transaction_check: bool = True,
     ):
-        super().__init__(open(name, mode=mode, encoding=encoding))
-        self.encoding = encoding
+        if transaction_suffix:
+            try:
+                stream = open(
+                    f"{name}{transaction_suffix}", mode=mode, encoding=encoding
+                )
+            except FileNotFoundError:
+                stream = open(name, mode=mode, encoding=encoding)
+        else:
+            stream = open(name, mode=mode, encoding=encoding)
+        super().__init__(stream)
         self.name = name
+        self.encoding = encoding
         self.update_mode = update_mode or delete_mode
         self.delete_mode = delete_mode
-        if update_mode:
+        if transaction_check:
+            self.check_transaction()
+        if self.update_mode:
             self.copystream = tempfile.NamedTemporaryFile(
                 mode="w", encoding=encoding, delete=False
             )
             self.copybuffer = []
             self.updated = False
+
+    def check_transaction(self):
+        if self.name != self.stream.name and os.path.getmtime(
+            self.stream.name
+        ) < os.path.getmtime(self.name):
+            raise RuntimeError(
+                f"The original file has been updated since the last "
+                f"transaction: {self.name}"
+            )
 
     def read_object(self) -> t.Optional[DataObject]:
         """

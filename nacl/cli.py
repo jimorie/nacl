@@ -3,6 +3,7 @@
 import collections
 import contextlib
 import itertools
+import os.path
 import pathlib
 import shutil
 import sys
@@ -27,6 +28,10 @@ from nacl.naemon import (
     ObjdefFilter,
     ObjdefUpdate,
 )
+
+
+TRANSACTION_SUFFIX = ".naclnew"
+BACKUP_SUFFIX = ".naclold"
 
 
 class GlobPath(click.Path):
@@ -152,17 +157,39 @@ class GlobPath(click.Path):
     """,
 )
 @click.option(
-    "--overwrite",
+    "--write",
     "-w",
-    type=click.Choice(["no", "yes", "backup"]),
-    default="no",
+    type=click.Choice(["overwrite", "backup", "transaction"]),
+    default="transaction",
     show_default=True,
+    help=f"""
+        Control how updated configuration files are written. `overwrite`
+        replaces the original configuration file with the updated file.
+        `backup` adds a "{BACKUP_SUFFIX}" suffix to the original configuration
+        file before replacing it with the updated file. `transaction` writes
+        the updated file with a "{TRANSACTION_SUFFIX}" suffix. If the
+        transaction file is already present, data will also be read from that
+        file instead of the original. This allows multiple executions of the
+        command to update the configuration files in steps, with previous
+        updates being respected. See also the `--commit` option.
+    """,
+)
+@click.option(
+    "--no-transaction-check",
+    is_flag=True,
     help="""
-        Control how updated configuration files are written. `no` writes
-        updated configuration files to a new file with an added ".naclnew"
-        suffix. `yes` replaces the original configuration file with the updated
-        file. `backup` adds a ".naclold" suffix to the original configuration
-        file before replacing it with the updated file.
+        When using `--write=transaction` or the `--commit` option, the command
+        automatically fails if the modification time of the original file is
+        newer than that of the transaction file. This option disabled that
+        behavior.
+    """,
+)
+@click.option(
+    "--commit",
+    is_flag=True,
+    help="""
+        Replace the original file(s) with their transaction file(s), if any.
+        No other operatios are made.
     """,
 )
 @click.option(
@@ -235,6 +262,9 @@ def main(
     """
     The salty command line interface to your Naemon configuration.
     """
+    if opt["commit"]:
+        # Replace original files with the transaction files, if any.
+        return commit(config_files, opt)
     with contextlib.ExitStack() as exitmanager:
         update_mode = bool(opt["update"] or opt["delete"])
 
@@ -242,6 +272,10 @@ def main(
             # Open the file streams and register them with the exitmanager, so
             # that they are properly closed (and in case of update buffers,
             # deleted) on exit.
+            if update_mode and opt["write"] == "transaction":
+                transaction_suffix = TRANSACTION_SUFFIX
+            else:
+                transaction_suffix = None
             config_files = [
                 exitmanager.enter_context(
                     ConfigFile(
@@ -249,6 +283,8 @@ def main(
                         encoding=opt["encoding"],
                         update_mode=update_mode,
                         delete_mode=opt["delete"],
+                        transaction_suffix=transaction_suffix,
+                        transaction_check=not opt["no_transaction_check"],
                     )
                 )
                 for name in itertools.chain.from_iterable(config_files)
@@ -258,15 +294,14 @@ def main(
                 config_file.read_objects() for config_file in config_files
             )
         else:
+            if update_mode:
+                # Abort if the given options require named config files.
+                raise click.ClickException(
+                    "Unable to use --update, --delete without named config files."
+                )
             # Read object definitions from stdin when no config files are
             # given.
             objdefs = ConfigStream(sys.stdin).read_objects()
-            if update_mode:
-                # We don't know where to write updates when reading from
-                # stdin.
-                raise click.ClickException(
-                    "Unable to use --update or --delete without named config files."
-                )
 
         # Counter object for some basic analytics.
         counter = collections.Counter()
@@ -371,12 +406,29 @@ def main(
             for config_file in config_files:
                 if config_file.updated:
                     config_file.close()
-                    if opt["overwrite"] == "no":
+                    if opt["write"] == "transaction":
                         shutil.move(
-                            config_file.updated_name, config_file.name + ".naclnew"
+                            config_file.updated_name,
+                            config_file.name + TRANSACTION_SUFFIX,
                         )
-                    elif opt["overwrite"] == "yes":
+                    elif opt["write"] == "overwrite":
                         shutil.move(config_file.updated_name, config_file.name)
-                    elif opt["overwrite"] == "backup":
-                        shutil.move(config_file.name, config_file.name + ".naclold")
+                    elif opt["write"] == "backup":
+                        shutil.move(config_file.name, config_file.name + BACKUP_SUFFIX)
                         shutil.move(config_file.updated_name, config_file.name)
+
+
+def commit(config_files, opt):
+    for config_file in itertools.chain.from_iterable(config_files):
+        try:
+            if opt["no_transaction_check"] or os.path.getmtime(
+                config_file
+            ) < os.path.getmtime(f"{config_file}{TRANSACTION_SUFFIX}"):
+                shutil.move(config_file + TRANSACTION_SUFFIX, config_file)
+                click.echo(f"{config_file}{TRANSACTION_SUFFIX} -> {config_file}")
+            else:
+                click.echo(
+                    f"Skipped: Original file newer than transaction file: {config_file}"
+                )
+        except FileNotFoundError:
+            pass
