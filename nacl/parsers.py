@@ -186,9 +186,16 @@ class DataObject(collections.OrderedDict):
             >>> obj.update("foo", "")
             >>> obj
             DataObject([('bar', 2)])
+
+            >>> obj.update("other", "")
+            >>> obj
+            DataObject([('bar', 2)])
         """
-        if (v is None or v == "") and k in self:
-            del self[k]
+        if v is None or v == "":
+            try:
+                del self[k]
+            except KeyError:
+                pass
         else:
             self[k] = v
 
